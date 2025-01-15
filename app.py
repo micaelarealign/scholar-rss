@@ -7,6 +7,15 @@ from urllib.parse import urlencode
 import logging
 import time
 from random import uniform
+import logging
+from random import choice
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+USER_AGENTS = [
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/120.0.0.0'
+]
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -31,6 +40,7 @@ def get_scholar_url(query='psilocybin'):
 def parse_scholar_results(html_content):
     soup = BeautifulSoup(html_content, 'html.parser')
     articles = soup.find_all('div', class_='gs_r gs_or gs_scl')
+    logger.debug(f"Found {len(articles)} article elements in HTML")
     results = []
     
     for article in articles:
@@ -69,24 +79,26 @@ def scholar_rss():
     fg.language('en')
     
     # Define headers here
+       # Replace the current headers block with this:
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'User-Agent': choice(USER_AGENTS),
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.5',
         'Connection': 'keep-alive',
     }
-    
+
     try:
-        response = requests.get(get_scholar_url(query), headers=headers)
-        articles = parse_scholar_results(response.text)
+        url = get_scholar_url(query)
+        logger.debug(f"Requesting URL: {url}")
+        logger.debug(f"Using headers: {headers}")
         
-        for article in articles:
-            fe = fg.add_entry()
-            fe.title(article['title'])
-            fe.link(href=article['url'])
-            fe.description(article['abstract'])
-            fe.author({'name': article['authors']})
-            fe.pubDate(datetime.now(timezone.utc))
+        response = requests.get(url, headers=headers)
+        logger.debug(f"Response status: {response.status_code}")
+        logger.debug(f"Response text preview: {response.text[:500]}")
+        
+        articles = parse_scholar_results(response.text)
+        logger.debug(f"Found {len(articles)} articles")
+
             
     except Exception as e:
         logging.error(f"Error fetching results: {e}")
